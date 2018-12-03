@@ -39,7 +39,9 @@ def ni_to_img(ni_mat, i=None, j=None, k=None):
     img3 = np.concatenate(rot ,axis=1)
     # plt.imshow(img3); plt.show()
     # get image -- gray goes from 1 to 256
-    pil_img = Image.fromarray(img3*(256/np.max(img3)))
+    adjusted = img3*(256/np.max(img3))
+    # adjusted[adjusted>255] = 0 # kill high values, bad idea
+    pil_img = Image.fromarray(adjusted)
     #pil_img.show()
     return(pil_img)
 
