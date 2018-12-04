@@ -13,12 +13,13 @@ from PIL import Image, ImageEnhance, ImageTk
 import numpy as np
 import nibabel as nib
 import sys # for exit
+import os.path
 
 
 # ### jpeg background image
 
 # -- functions
-def ni_to_img(ni_mat, i=None, j=None, k=None):
+def ni_to_img(ni_mat, i=None, j=None, k=None, ratio=1):
     """
     make a PIL image from a nifti
     opitonally given an i j k slice (otherwise middle)
@@ -47,6 +48,10 @@ def ni_to_img(ni_mat, i=None, j=None, k=None):
     adjusted = img3*(256/np.max(img3))
     # adjusted[adjusted>255] = 0 # kill high values, bad idea
     pil_img = Image.fromarray(adjusted)
+
+    if ratio != 1.0:
+        new_res = [ int(x * ratio) for x in pil_img.size]
+        pil_img = pil_img.resize(new_res)
     #pil_img.show()
     return(pil_img)
 
@@ -144,14 +149,12 @@ class BrainImage(tk.Frame):
         
 
     def nii_to_jpg(self):
+        ratio = float(self.scale_s.get())
         nii_jpg = ni_to_img(self.ni_mat,
                             self.scale_i.get(),
                             self.scale_j.get(),
-                            self.scale_k.get())
-        ratio = float(self.scale_s.get())
-        if ratio != 1.0:
-            new_res = [ int(x * ratio) for x in nii_jpg.size]
-            nii_jpg = nii_jpg.resize(new_res)
+                            self.scale_k.get(),
+                            ratio)
         return(nii_jpg)
 
 
@@ -201,12 +204,18 @@ root = tk.Tk()
 root.title("LNCD Brain Image Creator")
 
 # get mprage
-root.update()
-t1_file = askopenfilename(
-    defaultextension=".nii.gz",
-    title="select subject mprage.nii.gz")
-root.update()
-if not t1_file:
+if len(sys.argv) > 0:
+    t1_file = sys.argv[1]
+else:
+    root.update()
+    t1_file = askopenfilename(
+        defaultextension=".nii.gz",
+        title="select subject mprage.nii.gz")
+    root.update()
+
+# make sure it's at least a file
+if not t1_file or not os.path.isfile(t1_file):
+    print("bad or no mprage give or selected!")
     sys.exit(1)
 
 app = BrainImage(t1_file=t1_file,master=root)
