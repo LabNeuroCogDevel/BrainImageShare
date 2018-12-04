@@ -1,6 +1,12 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
+
+#
+# optimize share image for facebook cover
+# 820x312 (computer) 640x360 (mobile)
+# https://www.facebook.com/help/125379114252045
+
 import tkinter as tk
 from tkinter.filedialog import askopenfilename, asksaveasfile
 from PIL import Image, ImageEnhance, ImageTk
@@ -10,7 +16,6 @@ import sys # for exit
 
 
 # ### jpeg background image
-background = Image.open('top_only.png')
 
 # -- functions
 def ni_to_img(ni_mat, i=None, j=None, k=None):
@@ -48,14 +53,19 @@ def ni_to_img(ni_mat, i=None, j=None, k=None):
 
 # -- GUI
 class BrainImage(tk.Frame):
-    def mk_scale(self, lim):
-        s = tk.Scale(self.bframe,from_=0, to=lim-1)
+    def mk_scale(self, lim, side="left"):
+        s = tk.Scale(self.bframe,from_=0, to=lim-1,orient="horizontal")
         s.set(lim//2)
         s.bind("<ButtonRelease-1>", self.update_image)
-        s.pack(side="left")
+        #s.pack(side=side)
         return(s)
 
     def __init__(self, t1_file="mprage.nii.gz", master=None):
+
+        # ### template image
+
+        #lncd_template = Image.open('top_only.png')
+        self.lncd_template = Image.open('overlay.png')
 
         # ### brain image
         ni  = nib.load(t1_file)
@@ -63,9 +73,13 @@ class BrainImage(tk.Frame):
         # http://nipy.org/nibabel/coordinate_systems.html
         self.ni_mat = ni.get_fdata()
 
+        # default nii image settings
+        self.default = {'height': 50, 'scale': 1.2}
+
         tk.Frame.__init__(self,master)
         # -- interface
         self.bframe = tk.Frame()
+
         # slice position
         self.scale_k = self.mk_scale(self.ni_mat.shape[2]) # ax
         self.scale_i = self.mk_scale(self.ni_mat.shape[0]) # sag(NB out of place)
@@ -73,32 +87,52 @@ class BrainImage(tk.Frame):
         # - buttons
         # reset
         self.b_reset = tk.Button(self.bframe,text="reset",command=self.reset)
-        self.b_reset.pack(side="bottom")
         # save
         self.b_save = tk.Button(self.bframe,text="save",command=self.save)
-        self.b_save.pack(side="bottom")
         # rerender
         self.b_rend = tk.Button(self.bframe,text="force-render",
                                 command=lambda: self.update_image(None))
-        self.b_rend.pack(side="bottom")
+
+        # -- image display settings
+        # height offset 
+        self.scale_ho = self.mk_scale(260) 
+        self.scale_ho.configure(orient="vertical")
+        self.scale_ho.set(self.default['height'])
+        # image scaling
+        self.scale_s = self.mk_scale(3) 
+        self.scale_s.configure(resolution=0.1)
+        self.scale_s.set(self.default['scale'])
 
         # -- the image
-        self.full_img = background
+        self.full_img = self.lncd_template
         self.full_img_tk = ImageTk.PhotoImage(self.full_img)
         self.img_disp = tk.Label(image=self.full_img_tk)
         self.img_disp.image = self.full_img_tk
+
+        # -- configure display
+        self.scale_k.grid( row=0,column=0)
+        self.scale_j.grid( row=1,column=0)
+        self.scale_i.grid( row=2,column=0)
+        self.scale_ho.grid(row=0,column=1,rowspan=2)
+        self.scale_s.grid( row=2,column=1)
+        self.b_reset.grid( row=0,column=2)
+        self.b_save.grid(  row=1,column=2)
+        self.b_rend.grid(  row=2,column=2)
 
         # button organization
         self.bframe.pack(side="top")
         self.img_disp.pack(side="bottom", fill="both", expand="yes")
 
-        # image. hold on for later
+        # update image display
+        self.update_image(None)
 
 
     def reset(self):
         self.scale_i.set(self.ni_mat.shape[0]//2)
         self.scale_j.set(self.ni_mat.shape[1]//2)
         self.scale_k.set(self.ni_mat.shape[2]//2)
+        self.scale_ho.set(self.default['height'])
+        self.scale_s.set(self.default['scale'])
         self.update_image(None)
 
 
@@ -109,30 +143,57 @@ class BrainImage(tk.Frame):
         self.full_img.save(f)
         
 
-    def update_image(self,e):
+    def nii_to_jpg(self):
         nii_jpg = ni_to_img(self.ni_mat,
                             self.scale_i.get(),
                             self.scale_j.get(),
                             self.scale_k.get())
-        # center nii in top
-        # TODO: if w_offset is negative?
-        w_offset = (background.size[0] - nii_jpg.size[0])//2
-        h_offset = background.size[1]
+        ratio = float(self.scale_s.get())
+        if ratio != 1.0:
+            new_res = [ int(x * ratio) for x in nii_jpg.size]
+            nii_jpg = nii_jpg.resize(new_res)
+        return(nii_jpg)
 
-        # total size: max of widths, sum of heights
-        total_size = (max(background.size[0],nii_jpg.size[0]),
-                      background.size[1]+nii_jpg.size[1])
 
-        # combine images
-        self.full_img = Image.new("RGBA", total_size)
-        self.full_img.paste(background,(0,0))
-        self.full_img.paste(nii_jpg.convert("RGBA"),(w_offset,h_offset))
-        self.full_img = self.full_img.convert("RGB") # remove alpha
-        # self.full_img.show()
+    def update_image(self,e):
+        """ warpper: which update function to use """
+        self.update_image_overlay(e)
 
+        # update display
         self.full_img_tk = ImageTk.PhotoImage(self.full_img)
         self.img_disp.configure(image=self.full_img_tk)
         self.img_disp.image = self.full_img_tk
+
+        
+    def update_image_overlay(self,e):
+        nii_jpg = self.nii_to_jpg()
+        w_offset = (self.lncd_template.size[0] - nii_jpg.size[0])//2
+        # todo change based on what image?
+        h_offset = self.scale_ho.get() # 130
+        total_size = self.lncd_template.size
+
+        self.full_img = Image.new("RGBA", total_size)
+        self.full_img.paste(nii_jpg.convert("RGBA"),(w_offset,h_offset))
+        self.full_img.paste(self.lncd_template,(0,0),self.lncd_template)
+        self.full_img = self.full_img.convert("RGB") # replace alpha w/black
+
+    def update_image_stack(self,e):
+        nii_jpg = self.nii_to_jpg()
+        # center nii in top
+        # TODO: if w_offset is negative?
+        w_offset = (self.lncd_template.size[0] - nii_jpg.size[0])//2
+        h_offset = self.lncd_template.size[1]
+
+        # total size: max of widths, sum of heights
+        total_size = (max(self.lncd_template.size[0],nii_jpg.size[0]),
+                      self.lncd_template.size[1]+nii_jpg.size[1])
+
+        # combine images
+        self.full_img = Image.new("RGBA", total_size)
+        self.full_img.paste(self.lncd_template,(0,0))
+        self.full_img.paste(nii_jpg.convert("RGBA"),(w_offset,h_offset))
+        self.full_img = self.full_img.convert("RGB") # remove alpha
+        # self.full_img.show()
 
 
 # -- start TK
