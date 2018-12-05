@@ -21,6 +21,6 @@ setup(name='brainimageshare',
           'gui': ['brainimageshare = brainimageshare:brainimageshare'],
       },
       scripts=['bin/brainimageshare'],
-      data_files=[('templates', ['templates/overlay.png'])],
+      #data_files=[('templates', ['templates/overlay.png'])],
       include_package_data=True,
       zip_safe=False)

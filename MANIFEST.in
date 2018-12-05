@@ -1,1 +1,1 @@
-include templates/overlay.png
+recursive-include templates overlay.png
