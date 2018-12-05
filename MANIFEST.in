@@ -1,1 +1,1 @@
-recursive-include templates overlay.png
+recursive-include brainimageshare/templates *.png
