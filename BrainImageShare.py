@@ -2,6 +2,11 @@
 # -*- coding: utf-8 -*-
 
 
+# USAGE:
+#  ./BrainImageShare.py mprage.nii.gz output.jpeg
+#  ./BrainImageShare.py # interactive
+#
+
 #
 # optimize share image for facebook cover
 # 820x312 (computer) 640x360 (mobile)
@@ -12,11 +17,14 @@ from tkinter.filedialog import askopenfilename, asksaveasfile
 from PIL import Image, ImageEnhance, ImageTk
 import numpy as np
 import nibabel as nib
-import sys # for exit
+import sys
 import os.path
 
 
 # ### jpeg background image
+def overlay_defaults():
+        return({'height': 50, 'scale': 1.2})
+
 
 # -- functions
 def ni_to_img(ni_mat, i=None, j=None, k=None, ratio=1):
@@ -55,6 +63,50 @@ def ni_to_img(ni_mat, i=None, j=None, k=None, ratio=1):
     #pil_img.show()
     return(pil_img)
 
+def mk_image_overlay(nii_jpg, lncd_template, h_offset):
+    w_offset = (lncd_template.size[0] - nii_jpg.size[0])//2
+    total_size = lncd_template.size
+
+    full_img = Image.new("RGBA", total_size)
+    full_img.paste(nii_jpg.convert("RGBA"),(w_offset,h_offset))
+    full_img.paste(lncd_template,(0,0),lncd_template)
+    full_img = full_img.convert("RGB") # replace alpha w/black
+    return(full_img)
+
+def mk_image_stack(nii_jpg, lncd_template):
+    # center nii in top
+    # TODO: if w_offset is negative? -- leave it up to scaling?
+    w_offset = (lncd_template.size[0] - nii_jpg.size[0])//2
+    h_offset = lncd_template.size[1]
+
+    # total size: max of widths, sum of heights
+    total_size = (max(lncd_template.size[0],nii_jpg.size[0]),
+                  lncd_template.size[1]+nii_jpg.size[1])
+
+    # combine images
+    full_img = Image.new("RGBA", total_size)
+    full_img.paste(lncd_template,(0,0))
+    full_img.paste(nii_jpg.convert("RGBA"),(w_offset,h_offset))
+    full_img = full_img.convert("RGB") # remove alpha
+    # self.full_img.show()
+    return(full_img)
+
+
+def mk_image(mprage_file, output_file):
+    if os.path.isfile(output_file):
+        print("already have output. To continue:\n\trm %s"%output_file)
+        return()
+    # load settings, mprage, and overlay image
+    settings = overlay_defaults()
+    lncd_template = Image.open('overlay.png')
+    ni  = nib.load(t1_file)
+    # how to put the images together
+    ni_mat = ni.get_fdata()
+    middle = [ x//2 for x in ni_mat.shape ]
+    nii_jpg = ni_to_img(ni_mat, *middle, settings['scale'])
+    # do it
+    full_img = mk_image_overlay(nii_jpg, lncd_template, settings['height'])
+    full_img.save(output_file)
 
 # -- GUI
 class BrainImage(tk.Frame):
@@ -79,7 +131,7 @@ class BrainImage(tk.Frame):
         self.ni_mat = ni.get_fdata()
 
         # default nii image settings
-        self.default = {'height': 50, 'scale': 1.2}
+        self.default = overlay_defaults()
 
         tk.Frame.__init__(self,master)
         # -- interface
@@ -170,54 +222,48 @@ class BrainImage(tk.Frame):
         
     def update_image_overlay(self,e):
         nii_jpg = self.nii_to_jpg()
-        w_offset = (self.lncd_template.size[0] - nii_jpg.size[0])//2
         # todo change based on what image?
         h_offset = self.scale_ho.get() # 130
-        total_size = self.lncd_template.size
-
-        self.full_img = Image.new("RGBA", total_size)
-        self.full_img.paste(nii_jpg.convert("RGBA"),(w_offset,h_offset))
-        self.full_img.paste(self.lncd_template,(0,0),self.lncd_template)
-        self.full_img = self.full_img.convert("RGB") # replace alpha w/black
+        self.full_img = mk_image_overlay(nii_jpg,
+                                         self.lncd_template,
+                                         h_offset)
 
     def update_image_stack(self,e):
         nii_jpg = self.nii_to_jpg()
-        # center nii in top
-        # TODO: if w_offset is negative?
-        w_offset = (self.lncd_template.size[0] - nii_jpg.size[0])//2
-        h_offset = self.lncd_template.size[1]
-
-        # total size: max of widths, sum of heights
-        total_size = (max(self.lncd_template.size[0],nii_jpg.size[0]),
-                      self.lncd_template.size[1]+nii_jpg.size[1])
-
-        # combine images
-        self.full_img = Image.new("RGBA", total_size)
-        self.full_img.paste(self.lncd_template,(0,0))
-        self.full_img.paste(nii_jpg.convert("RGBA"),(w_offset,h_offset))
-        self.full_img = self.full_img.convert("RGB") # remove alpha
-        # self.full_img.show()
+        self.full_img = mk_image_stack(nii_jpg, self.lncd_template)
 
 
 # -- start TK
-root = tk.Tk()
-root.title("LNCD Brain Image Creator")
 
-# get mprage
-if len(sys.argv) > 0:
-    t1_file = sys.argv[1]
-else:
-    root.update()
-    t1_file = askopenfilename(
-        defaultextension=".nii.gz",
-        title="select subject mprage.nii.gz")
-    root.update()
 
-# make sure it's at least a file
-if not t1_file or not os.path.isfile(t1_file):
-    print("bad or no mprage give or selected!")
-    sys.exit(1)
+# if not loading as a module
+# launch gui if given no args or just an mprage
+# if given both input mprage and output, just write the file
+if __name__ == "__main__":
+    root = tk.Tk()
+    root.title("LNCD Brain Image Creator")
 
-app = BrainImage(t1_file=t1_file,master=root)
-root.bind("<Return>", app.update_image)
-app.mainloop()
+    # get mprage
+    if len(sys.argv) > 0:
+        t1_file = sys.argv[1]
+    else:
+        root.update()
+        t1_file = askopenfilename(
+            defaultextension=".nii.gz",
+            title="select subject mprage.nii.gz")
+        root.update()
+
+    # no gui if given input and output
+    if len(sys.argv) == 3:
+        save_as=sys.argv[2]
+        mk_image(t1_file, save_as)
+        sys.exit(0)
+
+    # make sure it's at least a file, nibabel will error if not nii.gz
+    if not t1_file or not os.path.isfile(t1_file):
+        print("bad or no mprage give or selected!")
+        sys.exit(1)
+
+    app = BrainImage(t1_file=t1_file,master=root)
+    root.bind("<Return>", app.update_image)
+    app.mainloop()
