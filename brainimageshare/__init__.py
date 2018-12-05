@@ -26,6 +26,12 @@ def overlay_defaults():
         return({'height': 50, 'scale': 1.2})
 
 
+def overlay_image():
+    pkgdir = os.path.dirname(__file__)
+    img_path = os.path.join(pkgdir, "templates", "overlay.png")
+    return(img_path)
+
+
 # -- functions
 def ni_to_img(ni_mat, i=None, j=None, k=None, ratio=1):
     """
@@ -98,7 +104,7 @@ def mk_image(mprage_file, output_file):
         return()
     # load settings, mprage, and overlay image
     settings = overlay_defaults()
-    lncd_template = Image.open('overlay.png')
+    lncd_template = Image.open(overlay_image())
     ni  = nib.load(t1_file)
     # how to put the images together
     ni_mat = ni.get_fdata()
@@ -122,7 +128,7 @@ class BrainImage(tk.Frame):
         # ### template image
 
         #lncd_template = Image.open('top_only.png')
-        self.lncd_template = Image.open('overlay.png')
+        self.lncd_template = Image.open(overlay_image())
 
         # ### brain image
         ni  = nib.load(t1_file)
@@ -259,13 +265,7 @@ class BrainImage(tk.Frame):
         self.full_img = mk_image_stack(nii_jpg, self.lncd_template)
 
 
-# -- start TK
-
-
-# if not loading as a module
-# launch gui if given no args or just an mprage
-# if given both input mprage and output, just write the file
-if __name__ == "__main__":
+def brainimageshare():
     root = tk.Tk()
     root.title("LNCD Brain Image Creator")
 
@@ -281,7 +281,7 @@ if __name__ == "__main__":
 
     # no gui if given input and output
     if len(sys.argv) == 3:
-        save_as=sys.argv[2]
+        save_as = sys.argv[2]
         mk_image(t1_file, save_as)
         sys.exit(0)
 
@@ -290,5 +290,12 @@ if __name__ == "__main__":
         print("bad or no mprage give or selected!")
         sys.exit(1)
 
-    app = BrainImage(t1_file=t1_file,master=root)
+    app = BrainImage(t1_file=t1_file, master=root)
     app.mainloop()
+
+
+# if not loading as a module
+# launch gui if given no args or just an mprage
+# if given both input mprage and output, just write the file
+if __name__ == "__main__":
+    brainimageshare()
