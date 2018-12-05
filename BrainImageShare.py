@@ -270,7 +270,7 @@ if __name__ == "__main__":
     root.title("LNCD Brain Image Creator")
 
     # get mprage
-    if len(sys.argv) > 0:
+    if len(sys.argv) > 1:
         t1_file = sys.argv[1]
     else:
         root.update()
