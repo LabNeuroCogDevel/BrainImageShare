@@ -200,7 +200,7 @@ class BrainImage(tk.Frame):
         master.bind("s",lambda x: self.mv_scale(self.scale_s, 1))
         master.bind("S",lambda x: self.mv_scale(self.scale_s, -1))
         master.bind("h",lambda x: self.mv_scale(self.scale_ho, 1))
-        master.bind("h",lambda x: self.mv_scale(self.scale_ho, -1))
+        master.bind("H",lambda x: self.mv_scale(self.scale_ho, -1))
         master.bind("<Down>",lambda x: self.mv_scale(self.scale_ho, 1))
         master.bind("<Up>",lambda x: self.mv_scale(self.scale_ho, -1))
         master.bind("<Right>",lambda x: self.mv_scale(self.scale_s, 1))
