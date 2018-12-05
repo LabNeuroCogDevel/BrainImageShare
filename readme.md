@@ -7,12 +7,15 @@ A python3 library/script to create a sharable jpeg out of a nifti image with a c
 
 ```
 # install
-pip3 install http://github.com/LabNeuroCogDevel/BrainImageShare
+python3 -m pip install git+http://github.com/LabNeuroCogDevel/BrainImageShare --user
+
 # run
 python3 -m brainimageshare
-# OR if ~/.local/bin is in $PATH
+# OR if e.g. ~/.local/bin is in $PATH (see ~/.bashrc or ~/.profile)
 brainimageshare 
 ```
+
+Debian note: pil does not include imagetk; `apt install python3-pil.imagetk`
 
 ## Modifying contact template
 
