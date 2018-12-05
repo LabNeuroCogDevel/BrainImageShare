@@ -1,3 +1,5 @@
 sub-11694_T1w.nii.gz
 *.egg-info/
 __pycache__
+dist
+MANIFEST
