@@ -183,6 +183,32 @@ class BrainImage(tk.Frame):
         # update image display
         self.update_image(None)
 
+        # -- bindings
+        master.bind("<Return>", lambda x: self.save())
+        master.bind("i",lambda x: self.mv_scale(self.scale_i, 1))
+        master.bind("I",lambda x: self.mv_scale(self.scale_i, -1))
+        master.bind("j",lambda x: self.mv_scale(self.scale_j, 1))
+        master.bind("J",lambda x: self.mv_scale(self.scale_j, -1))
+        master.bind("k",lambda x: self.mv_scale(self.scale_k, 1))
+        master.bind("K",lambda x: self.mv_scale(self.scale_k, -1))
+        master.bind("s",lambda x: self.mv_scale(self.scale_s, 1))
+        master.bind("S",lambda x: self.mv_scale(self.scale_s, -1))
+        master.bind("h",lambda x: self.mv_scale(self.scale_ho, 1))
+        master.bind("h",lambda x: self.mv_scale(self.scale_ho, -1))
+        master.bind("<Down>",lambda x: self.mv_scale(self.scale_ho, 1))
+        master.bind("<Up>",lambda x: self.mv_scale(self.scale_ho, -1))
+        master.bind("<Right>",lambda x: self.mv_scale(self.scale_s, 1))
+        master.bind("<Left>",lambda x: self.mv_scale(self.scale_s, -1))
+
+
+    def mv_scale(self,scale,inc):
+        """
+        move a scale slider by its resolution
+        """
+        res = scale.configure()['resolution'][4]
+        val = float(scale.get())
+        scale.set(val+(res*inc))
+        self.update_image(None)
 
     def reset(self):
         self.scale_i.set(self.ni_mat.shape[0]//2)
@@ -265,5 +291,4 @@ if __name__ == "__main__":
         sys.exit(1)
 
     app = BrainImage(t1_file=t1_file,master=root)
-    root.bind("<Return>", app.update_image)
     app.mainloop()
