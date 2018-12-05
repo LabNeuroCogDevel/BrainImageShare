@@ -158,12 +158,12 @@ class BrainImage(tk.Frame):
 
         # -- image display settings
         # height offset 
-        self.scale_ho = self.mk_scale(260) 
+        self.scale_ho = self.mk_scale(260)
         self.scale_ho.configure(orient="vertical")
         self.scale_ho.set(self.default['height'])
         # image scaling
-        self.scale_s = self.mk_scale(3) 
-        self.scale_s.configure(resolution=0.1)
+        self.scale_s = self.mk_scale(3)
+        self.scale_s.configure(resolution=0.025)
         self.scale_s.set(self.default['scale'])
 
         # -- the image
