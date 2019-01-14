@@ -1,0 +1,44 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+
+
+# USAGE:
+#  ./BrainImageShare.py mprage.nii.gz output.jpeg
+#  ./BrainImageShare.py # interactive
+#
+
+#
+# optimize share image for facebook cover
+# 820x312 (computer) 640x360 (mobile)
+# https://www.facebook.com/help/125379114252045
+
+import tkinter as tk
+import sys
+from brainimageshare import BrainImage
+import nibabel as nib
+
+
+def update_image(bi, e):
+    f = e.widget.get(e.widget.curselection()[0])
+    bi.ni_mat = nib.load(f).get_fdata()
+    bi.reset()
+    bi.update_image(None)
+
+
+root = tk.Tk()
+root.title("LNCD Brain Image Creator - list")
+main_frame = tk.Frame(root)
+if len(sys.argv) < 2:
+    print("give me list of nifti files")
+    print("./many_images.py /Volumes/Hera/Raw/BIDS/7TBrainMech/sub-*/*/anat/sub-11629_T1w.nii.gz")
+    sys.exit(0)
+
+lb = tk.Listbox(root, selectmode=tk.SINGLE)
+lb.config(width=70)
+bi = BrainImage(t1_file=sys.argv[1], master=main_frame)
+for i, f in enumerate(sys.argv[1:]):
+    lb.insert(i, f)
+lb.bind('<<ListboxSelect>>', lambda e: update_image(bi, e))
+lb.pack(side='top')
+root.update()
+root.mainloop()
