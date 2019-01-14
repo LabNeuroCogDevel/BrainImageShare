@@ -20,7 +20,7 @@ setup(name='brainimageshare',
       entry_points={
           'gui': ['brainimageshare = brainimageshare:brainimageshare'],
       },
-      scripts=['bin/brainimageshare'],
+      scripts=['bin/brainimageshare', 'bin/brainimageshare_many'],
       #data_files=[('templates', ['templates/overlay.png'])],
       include_package_data=True,
       zip_safe=False)
