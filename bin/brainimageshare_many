@@ -30,7 +30,8 @@ root.title("LNCD Brain Image Creator - list")
 main_frame = tk.Frame(root)
 if len(sys.argv) < 2:
     print("give me list of nifti files")
-    print("./many_images.py /Volumes/Hera/Raw/BIDS/7TBrainMech/sub-*/*/anat/sub-11629_T1w.nii.gz")
+    print(sys.argv[0] +
+          " /Volumes/Hera/Raw/BIDS/7TBrainMech/sub-*/*/anat/sub-*_T1w.nii.gz")
     sys.exit(0)
 
 lb = tk.Listbox(root, selectmode=tk.SINGLE)
