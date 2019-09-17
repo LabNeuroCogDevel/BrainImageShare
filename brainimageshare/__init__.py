@@ -23,7 +23,7 @@ import os.path
 
 # ### jpeg background image
 def overlay_defaults():
-        return({'height': 50, 'scale': 1.2})
+    return({'height': 50, 'scale': 1.2, 'contrast': 1})
 
 
 def overlay_image():
@@ -69,12 +69,15 @@ def ni_to_img(ni_mat, i=None, j=None, k=None, ratio=1):
     #pil_img.show()
     return(pil_img)
 
-def mk_image_overlay(nii_jpg, lncd_template, h_offset):
+def mk_image_overlay(nii_jpg, lncd_template, h_offset, contrast=1):
     w_offset = (lncd_template.size[0] - nii_jpg.size[0])//2
     total_size = lncd_template.size
+    nipixels = nii_jpg.convert("RGBA")
+    if contrast != 1:
+        nipixels = nipixels.point(lambda i: i*contrast)
 
     full_img = Image.new("RGBA", total_size)
-    full_img.paste(nii_jpg.convert("RGBA"),(w_offset,h_offset))
+    full_img.paste(nipixels,(w_offset,h_offset))
     full_img.paste(lncd_template,(0,0),lncd_template)
     full_img = full_img.convert("RGB") # replace alpha w/black
     return(full_img)
@@ -157,7 +160,7 @@ class BrainImage(tk.Frame):
                                 command=lambda: self.update_image(None))
 
         # -- image display settings
-        # height offset 
+        # height offset
         self.scale_ho = self.mk_scale(260)
         self.scale_ho.configure(orient="vertical")
         self.scale_ho.set(self.default['height'])
@@ -166,6 +169,12 @@ class BrainImage(tk.Frame):
         self.scale_s.configure(resolution=0.025)
         self.scale_s.set(self.default['scale'])
 
+        # image contrast
+        self.scale_c = self.mk_scale(2)
+        self.scale_c.configure(resolution=.1, orient="vertical",
+                               from_=2, to=0)
+        self.scale_c.set(self.default['contrast'])
+
         # -- the image
         self.full_img = self.lncd_template
         self.full_img_tk = ImageTk.PhotoImage(self.full_img)
@@ -173,14 +182,15 @@ class BrainImage(tk.Frame):
         self.img_disp.image = self.full_img_tk
 
         # -- configure display
-        self.scale_k.grid( row=0,column=0)
-        self.scale_j.grid( row=1,column=0)
-        self.scale_i.grid( row=2,column=0)
-        self.scale_ho.grid(row=0,column=1,rowspan=2)
-        self.scale_s.grid( row=2,column=1)
-        self.b_reset.grid( row=0,column=2)
-        self.b_save.grid(  row=1,column=2)
-        self.b_rend.grid(  row=2,column=2)
+        self.scale_k.grid( row=0, column=0)
+        self.scale_j.grid( row=1, column=0)
+        self.scale_i.grid( row=2, column=0)
+        self.scale_ho.grid(row=0, column=1, rowspan=2)
+        self.scale_c.grid( row=0, column=2, rowspan=2)
+        self.scale_s.grid( row=2, column=1)
+        self.b_reset.grid( row=0, column=3)
+        self.b_save.grid(  row=1, column=3)
+        self.b_rend.grid(  row=2, column=3)
 
         # button organization
         self.bframe.pack(side="top")
@@ -205,6 +215,8 @@ class BrainImage(tk.Frame):
         master.bind("<Up>",lambda x: self.mv_scale(self.scale_ho, -1))
         master.bind("<Right>",lambda x: self.mv_scale(self.scale_s, 1))
         master.bind("<Left>",lambda x: self.mv_scale(self.scale_s, -1))
+        master.bind("+",lambda x: self.mv_scale(self.scale_c, 1))
+        master.bind("-",lambda x: self.mv_scale(self.scale_c, -1))
 
 
     def mv_scale(self,scale,inc):
@@ -221,6 +233,7 @@ class BrainImage(tk.Frame):
         self.scale_j.set(self.ni_mat.shape[1]//2)
         self.scale_k.set(self.ni_mat.shape[2]//2)
         self.scale_ho.set(self.default['height'])
+        self.scale_c.set(self.default['contrast'])
         self.scale_s.set(self.default['scale'])
         self.update_image(None)
 
@@ -256,9 +269,10 @@ class BrainImage(tk.Frame):
         nii_jpg = self.nii_to_jpg()
         # todo change based on what image?
         h_offset = self.scale_ho.get() # 130
+        contrast = self.scale_c.get() # 130
         self.full_img = mk_image_overlay(nii_jpg,
                                          self.lncd_template,
-                                         h_offset)
+                                         h_offset, contrast)
 
     def update_image_stack(self,e):
         nii_jpg = self.nii_to_jpg()
