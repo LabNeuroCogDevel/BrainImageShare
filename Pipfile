@@ -4,7 +4,7 @@ verify_ssl = true
 name = "pypi"
 
 [packages]
-pillow = "*"
+pillow = ">=6.2.0"
 nibabel = "*"
 numpy = "*"
 tk = "*"
