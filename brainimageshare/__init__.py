@@ -239,7 +239,7 @@ class BrainImage(tk.Frame):
 
 
     def save(self):
-        f = asksaveasfile(mode='w', defaultextension=".jpg")
+        f = asksaveasfile(mode='wb', defaultextension=".jpg")
         if f is None:
             return
         self.full_img.save(f)
