@@ -108,20 +108,21 @@ def mk_image_stack(nii_jpg, lncd_template):
     return full_img
 
 
-def mk_image(mprage_file, output_file):
+def mk_image(t1_file, output_file, with_overlay=True):
     if os.path.isfile(output_file):
         print("already have output. To continue:\n\trm %s" % output_file)
-        return ()
+        return
     # load settings, mprage, and overlay image
     settings = overlay_defaults()
-    lncd_template = Image.open(overlay_image())
     ni = nib.load(t1_file)
     # how to put the images together
     ni_mat = ni.get_fdata()
     middle = [x // 2 for x in ni_mat.shape]
     nii_jpg = ni_to_img(ni_mat, *middle, settings["scale"])
     # do it
+    lncd_template = Image.open(overlay_image())
     full_img = mk_image_overlay(nii_jpg, lncd_template, settings["height"])
+
     full_img.save(output_file)
 
 
@@ -162,6 +163,14 @@ class BrainImage(tk.Frame):
         self.b_reset = tk.Button(self.bframe, text="reset", command=self.reset)
         # save
         self.b_save = tk.Button(self.bframe, text="save", command=self.save)
+        # save overlay?
+        self.overlay_check_var = tk.BooleanVar(value=True)
+        self.overlay_check = tk.Checkbutton(
+            self.bframe,
+            text="overlay?",
+            var=self.overlay_check_var,
+            command=lambda: self.update_image(None),
+        )
         # rerender
         self.b_rend = tk.Button(
             self.bframe, text="force-render", command=lambda: self.update_image(None)
@@ -198,6 +207,7 @@ class BrainImage(tk.Frame):
         self.b_reset.grid(row=0, column=3)
         self.b_save.grid(row=1, column=3)
         self.b_rend.grid(row=2, column=3)
+        self.overlay_check.grid(row=3, column=3)
 
         # button organization
         self.bframe.pack(side="top")
@@ -244,6 +254,7 @@ class BrainImage(tk.Frame):
         self.update_image(None)
 
     def save(self):
+        "save button pushed. prompt for file and write image there"
         f = asksaveasfile(mode="wb", defaultextension=".jpg")
         if f is None:
             return
@@ -274,9 +285,10 @@ class BrainImage(tk.Frame):
         # todo change based on what image?
         h_offset = self.scale_ho.get()  # 130
         contrast = self.scale_c.get()  # 130
-        self.full_img = mk_image_overlay(
-            nii_jpg, self.lncd_template, h_offset, contrast
-        )
+        template = self.lncd_template
+        if not self.overlay_check_var.get():
+            template = Image.new("RGBA", template.size)
+        self.full_img = mk_image_overlay(nii_jpg, template, h_offset, contrast)
 
     def update_image_stack(self, e):
         nii_jpg = self.nii_to_jpg()
