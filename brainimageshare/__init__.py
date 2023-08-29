@@ -58,9 +58,16 @@ def ni_to_img(ni_mat, i=None, j=None, k=None, ratio=1, spacing=0):
     sag = np.fliplr(np.rot90(sag, 2))
     # plt.imshow(sag); plt.show()
 
-    spacing = np.ones((spacing, nj)) * np.min(axl)
+    if spacing < 0:
+        step = abs(spacing) // 2
+        end = nj-step
+        axl = axl[step:end,:]
+        spacing = np.ones((0, nj))
+    else:
+        spacing = np.ones((spacing, nj)) * np.min(axl)
+
     # TODO: spacing as a 5 element array for each boundary.
-    #       with negative cutting into other images?
+
     rot = [np.rot90(x) for x in [axl, spacing, sag, spacing, cor]]
     img3 = np.concatenate(rot, axis=1)
     # plt.imshow(img3); plt.show()
@@ -200,7 +207,7 @@ class BrainImage(tk.Frame):
 
         # put empty space between
         self.scale_space = self.mk_scale(100)
-        self.scale_space.configure(resolution=5, from_=0, to=100)
+        self.scale_space.configure(resolution=5, from_=-75, to=100)
         self.scale_space.set(0)
 
         # -- the image
