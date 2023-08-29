@@ -33,7 +33,7 @@ def overlay_image():
 
 
 # -- functions
-def ni_to_img(ni_mat, i=None, j=None, k=None, ratio=1):
+def ni_to_img(ni_mat, i=None, j=None, k=None, ratio=1, spacing=0):
     """
     make a PIL image from a nifti
     opitonally given an i j k slice (otherwise middle)
@@ -58,7 +58,10 @@ def ni_to_img(ni_mat, i=None, j=None, k=None, ratio=1):
     sag = np.fliplr(np.rot90(sag, 2))
     # plt.imshow(sag); plt.show()
 
-    rot = [np.rot90(x) for x in [axl, sag, cor]]
+    spacing = np.ones((spacing, nj)) * np.min(axl)
+    # TODO: spacing as a 5 element array for each boundary.
+    #       with negative cutting into other images?
+    rot = [np.rot90(x) for x in [axl, spacing, sag, spacing, cor]]
     img3 = np.concatenate(rot, axis=1)
     # plt.imshow(img3); plt.show()
     # get image -- gray goes from 1 to 256
@@ -176,6 +179,10 @@ class BrainImage(tk.Frame):
             self.bframe, text="force-render", command=lambda: self.update_image(None)
         )
 
+        self.key_label = tk.Label(
+            text="keys: i/I, j/J, k/K, h/H, c/C, s/S, ↑↓←→, o, space, enter=save"
+        )
+
         # -- image display settings
         # height offset
         self.scale_ho = self.mk_scale(260)
@@ -190,6 +197,11 @@ class BrainImage(tk.Frame):
         self.scale_c = self.mk_scale(2)
         self.scale_c.configure(resolution=0.1, orient="vertical", from_=2, to=0)
         self.scale_c.set(self.default["contrast"])
+
+        # put empty space between
+        self.scale_space = self.mk_scale(100)
+        self.scale_space.configure(resolution=5, from_=0, to=100)
+        self.scale_space.set(0)
 
         # -- the image
         self.full_img = self.lncd_template
@@ -206,10 +218,12 @@ class BrainImage(tk.Frame):
         self.scale_s.grid(row=2, column=1)
         self.b_reset.grid(row=0, column=3)
         self.b_save.grid(row=1, column=3)
-        self.b_rend.grid(row=2, column=3)
-        self.overlay_check.grid(row=3, column=3)
+        self.b_rend.grid(row=3, column=3)
+        self.overlay_check.grid(row=3, column=2)
+        self.scale_space.grid(row=2, column=3)
 
         # button organization
+        self.key_label.pack(side="top")
         self.bframe.pack(side="top")
         self.img_disp.pack(side="bottom", fill="both", expand="yes")
 
@@ -232,8 +246,17 @@ class BrainImage(tk.Frame):
         master.bind("<Up>", lambda x: self.mv_scale(self.scale_ho, -1))
         master.bind("<Right>", lambda x: self.mv_scale(self.scale_s, 1))
         master.bind("<Left>", lambda x: self.mv_scale(self.scale_s, -1))
+        master.bind("c", lambda x: self.mv_scale(self.scale_c, 1))
+        master.bind("C", lambda x: self.mv_scale(self.scale_c, -1))
         master.bind("+", lambda x: self.mv_scale(self.scale_c, 1))
         master.bind("-", lambda x: self.mv_scale(self.scale_c, -1))
+        master.bind("o", lambda x: self.toggle_overlay())
+        master.bind("<space>", lambda x: self.mv_scale(self.scale_space, 5))
+        master.bind("<Shift-space>", lambda x: self.mv_scale(self.scale_space, -5))
+
+    def toggle_overlay(self):
+        self.overlay_check_var.set(not self.overlay_check_var.get())
+        self.update_image(None)
 
     def mv_scale(self, scale, inc):
         """
@@ -268,6 +291,7 @@ class BrainImage(tk.Frame):
             self.scale_j.get(),
             self.scale_k.get(),
             ratio,
+            self.scale_space.get(),
         )
         return nii_jpg
 
