@@ -2,7 +2,7 @@ from setuptools import setup
 
 
 setup(name='brainimageshare',
-      version='0.2',
+      version='0.3.20230829',
       description='Create jpeg with contact overlay from a nifti brain image',
       classifiers=[
         'License :: OSI Approved :: GNU General Public License v3 or later (GPLv3+)',
