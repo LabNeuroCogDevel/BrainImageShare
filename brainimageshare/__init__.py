@@ -12,16 +12,17 @@
 # 820x312 (computer) 640x360 (mobile)
 # https://www.facebook.com/help/125379114252045
 
-import tkinter as tk
-from tkinter.filedialog import askopenfilename, asksaveasfile
-from PIL import Image, ImageEnhance, ImageTk
-import numpy as np
-import nibabel as nib
-import tempfile
+import os.path
 import re
 import subprocess
 import sys
-import os.path
+import tempfile
+import tkinter as tk
+from tkinter.filedialog import askopenfilename, asksaveasfile
+
+import nibabel as nib
+import numpy as np
+from PIL import Image, ImageEnhance, ImageTk
 
 
 # ### jpeg background image
@@ -63,8 +64,8 @@ def ni_to_img(ni_mat, i=None, j=None, k=None, ratio=1, spacing=0):
 
     if spacing < 0:
         step = abs(spacing) // 2
-        end = nj-step
-        axl = axl[step:end,:]
+        end = nj - step
+        axl = axl[step:end, :]
         spacing = np.ones((0, nj))
     else:
         spacing = np.ones((spacing, nj)) * np.min(axl)
@@ -155,9 +156,9 @@ class BrainImage(tk.Frame):
         self.lncd_template = Image.open(overlay_image())
 
         # ### brain image
-        self.orig_anat = t1_file #: store for reset (20260204)
+        self.orig_anat = t1_file  #: store for reset (20260204)
         self.set_mat()
-        if re.search('UNIT1.nii.gz', t1_file):
+        if re.search("UNIT1.nii.gz", t1_file):
             # will skull strip and unifize and reset set_mat()
             okay, msg = self.uni_t1()
             if not okay:
@@ -306,11 +307,14 @@ class BrainImage(tk.Frame):
 
     def uni_t1(self):
         tmpd = tempfile.mkdtemp()
-        if not re.search('UNIT1.nii.gz', self.orig_anat):
+        if not re.search("UNIT1.nii.gz", self.orig_anat):
             return (False, f"Input image is not a UNIT1! '{self.orig_anat}'")
-        inv2 = self.orig_anat.replace('_UNIT1.nii.gz', '_acq-inv2_MP2RAGE.nii.gz')
+        inv2 = self.orig_anat.replace("_UNIT1.nii.gz", "_acq-inv2_MP2RAGE.nii.gz")
         if inv2 == self.orig_anat or os.path.isfile(inv2):
-            return (False, f"could not find inv-2 version of _UNIT1.nii.gz: tried '{inv2}'")
+            return (
+                False,
+                f"could not find inv-2 version of _UNIT1.nii.gz: tried '{inv2}'",
+            )
         new_file = f"{tmpd}/masked_unif.nii.gz"
         cmd = f"""
         # 3dcalc -a "{self.orig_anat}" -b "{inv2}" -expr 'a*ispositive(b-100)' -prefix {tmpd}/masked.nii.gz -overwrite;
@@ -323,14 +327,17 @@ class BrainImage(tk.Frame):
         subprocess.run(cmd, shell=True, check=False)
 
         if os.path.isfile(new_file):
-            return (False, f"AFNI failed tomake '{new_file}' from '{inv2}' and '{self.orig_anat}'")
+            return (
+                False,
+                f"AFNI failed tomake '{new_file}' from '{inv2}' and '{self.orig_anat}'",
+            )
 
         self.set_mat(new_file)
         # if we've already drawn something, update it
         if full_img_tk:
             self.update_image(None)
         print(f"images in {tmpd}")
-        #os.remove(tmpd)
+        # os.remove(tmpd)
         return (True, "Ok")
 
     def save(self):
