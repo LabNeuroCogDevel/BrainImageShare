@@ -17,6 +17,9 @@ from tkinter.filedialog import askopenfilename, asksaveasfile
 from PIL import Image, ImageEnhance, ImageTk
 import numpy as np
 import nibabel as nib
+import tempfile
+import re
+import subprocess
 import sys
 import os.path
 
@@ -152,10 +155,14 @@ class BrainImage(tk.Frame):
         self.lncd_template = Image.open(overlay_image())
 
         # ### brain image
-        ni = nib.load(t1_file)
-        # nib.aff2axcodes(ni.affine) # RAS -- always? is LPI outside of nipy
-        # http://nipy.org/nibabel/coordinate_systems.html
-        self.ni_mat = ni.get_fdata()
+        self.orig_anat = t1_file #: store for reset (20260204)
+        self.set_mat()
+        if re.search('UNIT1.nii.gz', t1_file):
+            # will skull strip and unifize and reset set_mat()
+            okay, msg = self.uni_t1()
+            if not okay:
+                raise Exception(f"Failed to make UNI: {msg}")
+            print(f"new image: {self.ni_mat.shape}")
 
         # default nii image settings
         self.default = overlay_defaults()
@@ -169,6 +176,8 @@ class BrainImage(tk.Frame):
         self.scale_i = self.mk_scale(self.ni_mat.shape[0])  # sag(NB out of place)
         self.scale_j = self.mk_scale(self.ni_mat.shape[1])  # cor
         # - buttons
+        # do we want an unit1 button?
+        #   self.b_unit1 = tk.Button(self.bframe, text="UNI T1", command=self.uni_t1)
         # reset
         self.b_reset = tk.Button(self.bframe, text="reset", command=self.reset)
         # save
@@ -265,6 +274,17 @@ class BrainImage(tk.Frame):
         self.overlay_check_var.set(not self.overlay_check_var.get())
         self.update_image(None)
 
+    def set_mat(self, different_file=None):
+        """
+        Read in and set ni_mat. Default to using stored input.
+        But can read in a different file (for uni_t1).
+        """
+        t1_file = self.orig_anat if different_file is None else different_file
+        ni = nib.load(t1_file)
+        # nib.aff2axcodes(ni.affine) # RAS -- always? is LPI outside of nipy
+        # http://nipy.org/nibabel/coordinate_systems.html
+        self.ni_mat = ni.get_fdata()
+
     def mv_scale(self, scale, inc):
         """
         move a scale slider by its resolution
@@ -275,6 +295,7 @@ class BrainImage(tk.Frame):
         self.update_image(None)
 
     def reset(self):
+        self.set_mat()
         self.scale_i.set(self.ni_mat.shape[0] // 2)
         self.scale_j.set(self.ni_mat.shape[1] // 2)
         self.scale_k.set(self.ni_mat.shape[2] // 2)
@@ -282,6 +303,35 @@ class BrainImage(tk.Frame):
         self.scale_c.set(self.default["contrast"])
         self.scale_s.set(self.default["scale"])
         self.update_image(None)
+
+    def uni_t1(self):
+        tmpd = tempfile.mkdtemp()
+        if not re.search('UNIT1.nii.gz', self.orig_anat):
+            return (False, f"Input image is not a UNIT1! '{self.orig_anat}'")
+        inv2 = self.orig_anat.replace('_UNIT1.nii.gz', '_acq-inv2_MP2RAGE.nii.gz')
+        if inv2 == self.orig_anat or os.path.isfile(inv2):
+            return (False, f"could not find inv-2 version of _UNIT1.nii.gz: tried '{inv2}'")
+        new_file = f"{tmpd}/masked_unif.nii.gz"
+        cmd = f"""
+        # 3dcalc -a "{self.orig_anat}" -b "{inv2}" -expr 'a*ispositive(b-100)' -prefix {tmpd}/masked.nii.gz -overwrite;
+        #3dSkullstrip -input "{self.orig_anat}"  -prefix "{tmpd}/masked.nii.gz" -overwrite;
+        bet "{self.orig_anat}" "{tmpd}/masked.nii.gz";
+        3dUnifize -GM -input {tmpd}/masked.nii.gz -prefix {tmpd}_masked_unif.nii.gz -overwrite;
+        3danisosmooth -prefix "{new_file}" -sigma1 0.6 -sigma2 0.6 -iters 2 {tmpd}/masked_unif.nii.gz;
+        """
+        print(f"make {new_file}\n\trunning {cmd}")
+        subprocess.run(cmd, shell=True, check=False)
+
+        if os.path.isfile(new_file):
+            return (False, f"AFNI failed tomake '{new_file}' from '{inv2}' and '{self.orig_anat}'")
+
+        self.set_mat(new_file)
+        # if we've already drawn something, update it
+        if full_img_tk:
+            self.update_image(None)
+        print(f"images in {tmpd}")
+        #os.remove(tmpd)
+        return (True, "Ok")
 
     def save(self):
         "save button pushed. prompt for file and write image there"

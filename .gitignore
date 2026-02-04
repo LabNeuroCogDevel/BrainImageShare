@@ -3,3 +3,4 @@ sub-11694_T1w.nii.gz
 __pycache__
 dist
 MANIFEST
+.venv/
