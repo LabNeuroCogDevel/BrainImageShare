@@ -139,6 +139,47 @@ def mk_image(t1_file, output_file, with_overlay=True):
 
     full_img.save(output_file)
 
+def unifizie(inputfile):
+    if not re.search("UNIT1.nii.gz", inputfile):
+        return (False, f"Input image is not a UNIT1! '{inputfile}'")
+    inv2 = inputfile.replace("_UNIT1.nii", "_inv-2_MP2RAGE.nii")
+    if inv2 == inputfile or not os.path.isfile(inv2):
+        return (
+            False,
+            f"could not find inv-2 version of _UNIT1.nii.gz: tried '{inv2}'",
+        )
+
+    # where to save output
+    if tmpd := os.environ.get("BIS_CACHE_DIR"):
+        tmpd = os.path.join(tmpd,os.path.basename(inputfile).replace('.nii.gz',''))
+        os.makedirs(tmpd, exist_ok=True)
+    else:
+        tmpd = tempfile.mkdtemp()
+    new_file = f"{tmpd}/masked_unif.nii.gz"
+
+    if os.path.isfile(new_file):
+        print(f"# Reusing previoulsy generated '{new_file}'")
+        return (True, new_file)
+
+    cmd = f"""
+    #3dSkullstrip -input "{inputfile}"  -prefix "{tmpd}/masked.nii.gz" -overwrite;
+    #bet "{inputfile}" "{tmpd}/bet.nii.gz";
+
+    ln -sf "{inv2}" "{tmpd}/";
+    ln -sf "{inputfile}" "{tmpd}/";
+    3dcalc -a "{inputfile}" -b "{inv2}" -expr 'a*ispositive(b-100)' -prefix {tmpd}/masked.nii.gz -overwrite;
+    3dUnifize -GM -input {tmpd}/masked.nii.gz -prefix {tmpd}/masked_unif.nii.gz -overwrite;
+    3danisosmooth -prefix "{new_file}" -sigma1 0.6 -sigma2 0.6 -iters 2 {tmpd}/masked_unif.nii.gz -overwrite;
+    """
+    print(f"# make {new_file}\n\trunning {cmd}")
+    subprocess.run(cmd, shell=True, check=False)
+
+    if not os.path.isfile(new_file):
+        return (
+            False,
+            f"AFNI failed to make '{new_file}' from '{inv2}' and '{inputfile}'",
+        )
+    return (True, new_file)
 
 # -- GUI
 class BrainImage(tk.Frame):
@@ -211,7 +252,7 @@ class BrainImage(tk.Frame):
         self.scale_s.set(self.default["scale"])
 
         # image contrast
-        self.scale_c = self.mk_scale(2)
+        self.scale_c = self.mk_scale(3) # 20261006 - increased for HC runnig SPA
         self.scale_c.configure(resolution=0.1, orient="vertical", from_=2, to=0)
         self.scale_c.set(self.default["contrast"])
 
@@ -281,6 +322,7 @@ class BrainImage(tk.Frame):
         But can read in a different file (for uni_t1).
         """
         t1_file = self.orig_anat if different_file is None else different_file
+        print(f"# loading {t1_file}")
         ni = nib.load(t1_file)
         # nib.aff2axcodes(ni.affine) # RAS -- always? is LPI outside of nipy
         # http://nipy.org/nibabel/coordinate_systems.html
@@ -306,38 +348,14 @@ class BrainImage(tk.Frame):
         self.update_image(None)
 
     def uni_t1(self):
-        tmpd = tempfile.mkdtemp()
-        if not re.search("UNIT1.nii.gz", self.orig_anat):
-            return (False, f"Input image is not a UNIT1! '{self.orig_anat}'")
-        inv2 = self.orig_anat.replace("_UNIT1.nii.gz", "_acq-inv2_MP2RAGE.nii.gz")
-        if inv2 == self.orig_anat or os.path.isfile(inv2):
-            return (
-                False,
-                f"could not find inv-2 version of _UNIT1.nii.gz: tried '{inv2}'",
-            )
-        new_file = f"{tmpd}/masked_unif.nii.gz"
-        cmd = f"""
-        # 3dcalc -a "{self.orig_anat}" -b "{inv2}" -expr 'a*ispositive(b-100)' -prefix {tmpd}/masked.nii.gz -overwrite;
-        #3dSkullstrip -input "{self.orig_anat}"  -prefix "{tmpd}/masked.nii.gz" -overwrite;
-        bet "{self.orig_anat}" "{tmpd}/masked.nii.gz";
-        3dUnifize -GM -input {tmpd}/masked.nii.gz -prefix {tmpd}_masked_unif.nii.gz -overwrite;
-        3danisosmooth -prefix "{new_file}" -sigma1 0.6 -sigma2 0.6 -iters 2 {tmpd}/masked_unif.nii.gz;
-        """
-        print(f"make {new_file}\n\trunning {cmd}")
-        subprocess.run(cmd, shell=True, check=False)
+        okay, file_or_msg = unifizie(self.orig_anat)
+        if not okay:
+            return (False, file_or_msg)
 
-        if os.path.isfile(new_file):
-            return (
-                False,
-                f"AFNI failed tomake '{new_file}' from '{inv2}' and '{self.orig_anat}'",
-            )
-
-        self.set_mat(new_file)
+        self.set_mat(file_or_msg)
         # if we've already drawn something, update it
-        if full_img_tk:
-            self.update_image(None)
-        print(f"images in {tmpd}")
-        # os.remove(tmpd)
+        #if self.full_img_tk:
+        #    self.update_image(None)
         return (True, "Ok")
 
     def save(self):
